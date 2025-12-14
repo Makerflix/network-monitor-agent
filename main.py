@@ -77,6 +77,17 @@ class NetworkMonitorAgent:
         # Initialize remediation
         remediation_config = self.config.get('remediation', {})
         self.remediation = RemediationActions(remediation_config)
+
+        # Daily summary tracking
+        from datetime import datetime
+        self.last_summary = datetime.now()
+        self.daily_stats = {
+            'total_checks': 0,
+            'issues_found': 0,
+            'actions_taken': 0,
+            'systems_healthy': 0,
+            'systems_total': 0
+        }
         self.auto_fix = remediation_config.get('auto_fix', True)
         self.allowed_actions = remediation_config.get('allowed_actions', [])
 
@@ -129,6 +140,9 @@ class NetworkMonitorAgent:
         self.notifier.log_info("=" * 60)
         self.notifier.log_info("Starting monitoring cycle")
 
+        # Track daily stats
+        self.daily_stats['total_checks'] += 1
+
         # Collect all monitoring results
         all_results = []
 
@@ -142,9 +156,16 @@ class NetworkMonitorAgent:
         # Filter unhealthy results
         issues = [r for r in all_results if not r.get('healthy', True)]
 
+        # Track systems health
+        self.daily_stats['systems_total'] = len(all_results)
+        self.daily_stats['systems_healthy'] = len([r for r in all_results if r.get('healthy', True)])
+
         if not issues:
             self.notifier.notify_system_healthy()
             return
+
+        # Track issues found
+        self.daily_stats['issues_found'] += len(issues)
 
         # Report issues
         self.notifier.notify_issue_detected(issues)
@@ -174,12 +195,17 @@ class NetworkMonitorAgent:
                 success, result_message = self.remediation.execute_action(action)
                 self.notifier.notify_action_taken(action, success, result_message)
 
+                # Track successful actions
+                if success:
+                    self.daily_stats['actions_taken'] += 1
+
         except Exception as e:
             self.notifier.log_error(f"AI analysis failed: {e}")
             # Continue without AI - issues have been logged
 
     def run(self):
         """Main agent loop"""
+        from datetime import datetime
         self.running = True
         self.notifier.log_info(f"Network Monitor Agent running (interval: {self.interval}s)")
 
@@ -189,6 +215,20 @@ class NetworkMonitorAgent:
                     self.run_monitoring_cycle()
                 except Exception as e:
                     self.notifier.log_error(f"Error in monitoring cycle: {e}")
+
+                # Check if 24 hours passed for daily summary
+                time_since_summary = (datetime.now() - self.last_summary).total_seconds()
+                if time_since_summary >= 86400:  # 24 hours
+                    self.notifier.notify_daily_summary(self.daily_stats)
+                    self.last_summary = datetime.now()
+                    # Reset daily stats
+                    self.daily_stats = {
+                        'total_checks': 0,
+                        'issues_found': 0,
+                        'actions_taken': 0,
+                        'systems_healthy': 0,
+                        'systems_total': 0
+                    }
 
                 # Wait for next cycle
                 if self.running:

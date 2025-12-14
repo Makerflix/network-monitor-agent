@@ -49,8 +49,10 @@ class Notifier:
         self.slack_webhook = os.getenv('SLACK_WEBHOOK_URL') or config.get('slack', {}).get('webhook_url')
 
         # Discord config
-        self.discord_enabled = config.get('discord', {}).get('enabled', False)
-        self.discord_webhook = os.getenv('DISCORD_WEBHOOK_URL') or config.get('discord', {}).get('webhook_url')
+        self.discord_config = config.get('discord', {})
+        self.discord_enabled = self.discord_config.get('enabled', False)
+        self.discord_webhook = os.getenv('DISCORD_WEBHOOK_URL') or self.discord_config.get('webhook_url')
+        self.discord_notify_on = self.discord_config.get('notify_on', [])
 
     def log_info(self, message: str):
         """Log info message"""
@@ -64,6 +66,20 @@ class Notifier:
         """Log error message"""
         self.logger.error(message)
 
+    def _should_notify_discord(self, event_type: str, severity: str = None) -> bool:
+        """Check if event should trigger Discord notification"""
+        if not self.discord_enabled:
+            return False
+
+        if event_type == 'actions_taken' and 'actions_taken' in self.discord_notify_on:
+            return True
+        if event_type == 'critical_issues' and 'critical_issues' in self.discord_notify_on:
+            return severity in ['critical', 'high']
+        if event_type == 'daily_summary' and 'daily_summary' in self.discord_notify_on:
+            return True
+
+        return False
+
     def notify_issue_detected(self, issues: List[Dict[str, Any]]):
         """Notify about detected issues"""
         if not issues:
@@ -75,9 +91,17 @@ class Notifier:
 
         self.log_warning(message)
 
+        # Send to Slack
         if len(issues) > 0:
             self._send_slack(message, color='warning')
-            self._send_discord(message, color='orange')
+
+        # Send to Discord only if we have critical/high severity issues
+        critical_issues = [i for i in issues if i.get('severity') in ['critical', 'high']]
+        if critical_issues and self._should_notify_discord('critical_issues', 'critical'):
+            critical_message = f"🚨 Detected {len(critical_issues)} critical issue(s):\n"
+            for issue in critical_issues:
+                critical_message += f"  • {issue.get('message', 'Unknown issue')}\n"
+            self._send_discord(critical_message, color='red')
 
     def notify_action_taken(self, action: Dict[str, Any], success: bool, result_message: str):
         """Notify about remediation action"""
@@ -91,7 +115,9 @@ class Notifier:
             message += f"  Result: {result_message}"
             self.log_info(message)
             self._send_slack(message, color='good')
-            self._send_discord(message, color='green')
+            # Only send to Discord if actions_taken notifications are enabled
+            if self._should_notify_discord('actions_taken'):
+                self._send_discord(message, color='green')
         else:
             message = f"❌ Failed to execute {action_type}\n"
             message += f"  Issue: {issue}\n"
@@ -196,3 +222,33 @@ class Notifier:
         self.log_info(message)
         self._send_slack(message, color='warning')
         self._send_discord(message, color='orange')
+
+    def notify_daily_summary(self, summary_data: Dict[str, Any]):
+        """Send daily health summary"""
+        if not self._should_notify_discord('daily_summary'):
+            return
+
+        total_checks = summary_data.get('total_checks', 0)
+        issues_found = summary_data.get('issues_found', 0)
+        actions_taken = summary_data.get('actions_taken', 0)
+        systems_healthy = summary_data.get('systems_healthy', 0)
+        systems_total = summary_data.get('systems_total', 0)
+
+        message = "📊 **Daily Homelab Health Summary**\n\n"
+        message += f"**Monitoring Cycles**: {total_checks}\n"
+        message += f"**Issues Detected**: {issues_found}\n"
+        message += f"**Actions Taken**: {actions_taken}\n"
+        message += f"**System Health**: {systems_healthy}/{systems_total} healthy\n\n"
+
+        if issues_found == 0:
+            message += "✅ No issues detected today!"
+            color = 'green'
+        elif actions_taken > 0:
+            message += f"🔧 {actions_taken} issue(s) automatically resolved"
+            color = 'green'
+        else:
+            message += "⚠️ Some issues require attention"
+            color = 'orange'
+
+        self.log_info("Sending daily summary")
+        self._send_discord(message, color=color)

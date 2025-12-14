@@ -193,8 +193,12 @@ notifications:
   log_level: "INFO"
 
   discord:
-    enabled: false
+    enabled: true
     webhook_url: "${DISCORD_WEBHOOK_URL}"
+    notify_on:
+      - actions_taken    # When agent fixes something
+      - critical_issues  # High/critical severity only
+      - daily_summary    # Once per day health report
 
   slack:
     enabled: false
