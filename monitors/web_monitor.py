@@ -1,6 +1,10 @@
 import requests
+import urllib3
 from typing import Dict, List, Any
 import time
+
+# Disable SSL warnings for self-signed certificates
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class WebMonitor:
@@ -19,7 +23,7 @@ class WebMonitor:
 
         try:
             start_time = time.time()
-            response = requests.get(url, timeout=timeout, allow_redirects=True)
+            response = requests.get(url, timeout=timeout, allow_redirects=True, verify=False)
             response_time = (time.time() - start_time) * 1000  # Convert to ms
 
             is_healthy = response.status_code == expected_status

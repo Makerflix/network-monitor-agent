@@ -62,11 +62,96 @@ monitoring:
   web_services:
     enabled: true
     endpoints:
-      - url: "http://localhost:8000"
-        name: "Local API"
+      # AI Services (Local - AIserver)
+      - url: "http://localhost:3001"
+        name: "Open WebUI"
         timeout: 5
         expected_status: 200
-      # Add your endpoints here
+      - url: "http://localhost:11434/api/tags"
+        name: "Ollama API"
+        timeout: 5
+        expected_status: 200
+      - url: "http://localhost:8001"
+        name: "Paperless"
+        timeout: 5
+        expected_status: 200
+      - url: "http://localhost:9999"
+        name: "SearXNG"
+        timeout: 5
+        expected_status: 200
+
+      # Home Assistant
+      - url: "http://192.168.1.86:8123"
+        name: "Home Assistant Primary"
+        timeout: 5
+        expected_status: 200
+      - url: "http://192.168.1.101:8123"
+        name: "Home Assistant Secondary"
+        timeout: 5
+        expected_status: 200
+
+      # Media Services
+      - url: "http://192.168.1.163:8096"
+        name: "Jellyfin"
+        timeout: 5
+        expected_status: 200
+      - url: "http://192.168.1.57:5000"
+        name: "Frigate NVR"
+        timeout: 5
+        expected_status: 200
+
+      # Proxmox Web Interfaces
+      - url: "https://192.168.1.98:8006"
+        name: "Proxmox Media Stack"
+        timeout: 5
+        expected_status: 200
+      - url: "https://192.168.1.163:8006"
+        name: "Proxmox Jellyfin"
+        timeout: 5
+        expected_status: 200
+
+      # Unraid
+      - url: "http://192.168.1.234"
+        name: "Unraid WebUI"
+        timeout: 5
+        expected_status: 200
+
+  # Remote Server Monitoring (SSH-based)
+  remote_servers:
+    enabled: true
+    servers:
+      - name: "prx-mdastck-svr"
+        host: "192.168.1.98"
+        user: "root"
+      - name: "prx-jelfrig-srv"
+        host: "192.168.1.163"
+        user: "root"
+      - name: "SideNas-Unraid"
+        host: "192.168.1.234"
+        user: "root"
+
+  # Proxmox Monitoring (API-based)
+  proxmox:
+    enabled: true
+    hosts:
+      - name: "prx-mdastck-svr"
+        host: "192.168.1.98"
+        node: "pve"
+        username: "root@pam"
+        password: "${PROXMOX_PASSWORD}"  # Set via environment
+      - name: "prx-jelfrig-srv"
+        host: "192.168.1.163"
+        node: "pve"
+        username: "root@pam"
+        password: "${PROXMOX_PASSWORD}"
+
+  # Docker Remote Monitoring
+  docker_remote:
+    enabled: true
+    hosts:
+      - name: "Unraid"
+        host: "192.168.1.234"
+        user: "root"
 
 # Remediation Settings
 remediation:

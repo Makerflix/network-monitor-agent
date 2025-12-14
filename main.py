@@ -10,7 +10,10 @@ import sys
 from typing import Dict, Any
 import os
 
-from monitors import SystemMonitor, NetworkMonitor, WebMonitor
+from monitors import (
+    SystemMonitor, NetworkMonitor, WebMonitor,
+    RemoteServerMonitor, ProxmoxMonitor, DockerRemoteMonitor
+)
 from ai import DecisionEngine
 from remediation import RemediationActions
 from notifications import Notifier
@@ -39,6 +42,19 @@ class NetworkMonitorAgent:
 
         if monitoring_config.get('web_services', {}).get('enabled', True):
             self.monitors.append(WebMonitor(monitoring_config.get('web_services', {})))
+
+        if monitoring_config.get('remote_servers', {}).get('enabled', False):
+            self.monitors.append(RemoteServerMonitor(monitoring_config.get('remote_servers', {})))
+
+        if monitoring_config.get('proxmox', {}).get('enabled', False):
+            self.monitors.append(ProxmoxMonitor(monitoring_config.get('proxmox', {})))
+
+        if monitoring_config.get('docker_remote', {}).get('enabled', False):
+            self.monitors.append(DockerRemoteMonitor(monitoring_config.get('docker_remote', {})))
+
+        # Log enabled monitors
+        monitor_names = [m.__class__.__name__ for m in self.monitors]
+        self.notifier.log_info(f"Enabled monitors: {', '.join(monitor_names)}")
 
         # Initialize AI decision engine
         self.decision_engine = DecisionEngine(self.config.get('ai', {}))
