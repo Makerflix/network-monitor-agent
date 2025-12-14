@@ -19,6 +19,17 @@ from remediation import RemediationActions
 from notifications import Notifier
 
 
+def load_env_file(env_path: str = '.env'):
+    """Load environment variables from .env file"""
+    if os.path.exists(env_path):
+        with open(env_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key.strip()] = value.strip()
+
+
 class NetworkMonitorAgent:
     """Main agent orchestrator"""
 
@@ -203,6 +214,9 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Load environment variables from .env file
+    load_env_file()
 
     # Create agent
     agent = NetworkMonitorAgent(args.config)
