@@ -4,6 +4,7 @@ psutil>=5.9.0
 requests>=2.31.0
 urllib3>=2.0.0
 docker>=6.0.0
+discord.py>=2.3.0  # For Discord bot integration
 
 # AI providers (install the one you need)
 ollama>=0.6.0  # For local Ollama models

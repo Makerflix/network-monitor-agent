@@ -9,6 +9,7 @@ import signal
 import sys
 from typing import Dict, Any
 import os
+import asyncio
 
 from monitors import (
     SystemMonitor, NetworkMonitor, WebMonitor,
@@ -18,6 +19,7 @@ from monitors import (
 from ai import DecisionEngine
 from remediation import RemediationActions
 from notifications import Notifier
+from discord_bot import HomelabBot, AgentController
 
 
 def load_env_file(env_path: str = '.env'):
@@ -96,6 +98,24 @@ class NetworkMonitorAgent:
 
         # Running flag
         self.running = False
+
+        # Initialize Discord bot if enabled
+        bot_config = self.config.get('discord_bot', {})
+        self.bot_enabled = bot_config.get('enabled', False)
+        self.discord_bot = None
+
+        if self.bot_enabled:
+            bot_token = os.getenv('DISCORD_BOT_TOKEN')
+            if bot_token:
+                self.agent_controller = AgentController(self)
+                self.discord_bot = HomelabBot(
+                    self.agent_controller,
+                    command_prefix=bot_config.get('prefix', '!')
+                )
+                self.notifier.log_info("Discord bot initialized")
+            else:
+                self.notifier.log_warning("Discord bot enabled but DISCORD_BOT_TOKEN not found")
+                self.bot_enabled = False
 
         # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -176,9 +196,13 @@ class NetworkMonitorAgent:
 
             if not actions:
                 self.notifier.log_warning("No actions recommended by AI")
+                # Add to bot history even with no actions
+                if self.bot_enabled and hasattr(self, 'agent_controller'):
+                    self.agent_controller.add_to_history(issues, [])
                 return
 
             # Execute actions
+            executed_actions = []
             for action in actions:
                 severity = action.get('severity', 'unknown')
                 action_type = action.get('action', 'unknown')
@@ -198,21 +222,30 @@ class NetworkMonitorAgent:
                 # Track successful actions
                 if success:
                     self.daily_stats['actions_taken'] += 1
+                    executed_actions.append(action)
+
+            # Add to bot history
+            if self.bot_enabled and hasattr(self, 'agent_controller'):
+                self.agent_controller.add_to_history(issues, executed_actions)
 
         except Exception as e:
             self.notifier.log_error(f"AI analysis failed: {e}")
+            # Add to bot history even on error
+            if self.bot_enabled and hasattr(self, 'agent_controller'):
+                self.agent_controller.add_to_history(issues, [])
             # Continue without AI - issues have been logged
 
-    def run(self):
-        """Main agent loop"""
+    async def _monitoring_loop(self):
+        """Async monitoring loop that runs monitoring cycles"""
         from datetime import datetime
-        self.running = True
         self.notifier.log_info(f"Network Monitor Agent running (interval: {self.interval}s)")
 
         try:
             while self.running:
                 try:
-                    self.run_monitoring_cycle()
+                    # Run monitoring cycle in thread pool to avoid blocking
+                    loop = asyncio.get_event_loop()
+                    await loop.run_in_executor(None, self.run_monitoring_cycle)
                 except Exception as e:
                     self.notifier.log_error(f"Error in monitoring cycle: {e}")
 
@@ -232,13 +265,103 @@ class NetworkMonitorAgent:
 
                 # Wait for next cycle
                 if self.running:
-                    time.sleep(self.interval)
+                    await asyncio.sleep(self.interval)
+
+        except asyncio.CancelledError:
+            pass
+
+    async def _start_discord_bot(self):
+        """Start Discord bot with error handling"""
+        try:
+            bot_token = os.getenv('DISCORD_BOT_TOKEN')
+            self.notifier.log_info("Starting Discord bot connection...")
+            await self.discord_bot.start(bot_token)
+        except Exception as e:
+            self.notifier.log_error(f"Discord bot failed to start: {e}")
+            import traceback
+            self.notifier.log_error(traceback.format_exc())
+
+    async def run_async(self):
+        """Main async agent loop with Discord bot support"""
+        self.running = True
+
+        try:
+            tasks = []
+
+            # Start monitoring loop
+            tasks.append(asyncio.create_task(self._monitoring_loop()))
+
+            # Start Discord bot if enabled
+            if self.bot_enabled and self.discord_bot:
+                tasks.append(asyncio.create_task(self._start_discord_bot()))
+
+            # Wait for all tasks
+            await asyncio.gather(*tasks, return_exceptions=True)
 
         except KeyboardInterrupt:
             pass
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            self.notifier.log_error(f"Error in async loop: {e}")
         finally:
+            # Clean shutdown
+            self.running = False
+
+            # Stop Discord bot
+            if self.bot_enabled and self.discord_bot:
+                try:
+                    await self.discord_bot.close()
+                except:
+                    pass
+
             self.notifier.notify_shutdown()
             self.notifier.log_info("Agent stopped")
+
+    def run(self):
+        """Main agent loop (sync wrapper for async)"""
+        if self.bot_enabled:
+            # Run async event loop for bot support
+            try:
+                asyncio.run(self.run_async())
+            except KeyboardInterrupt:
+                pass
+        else:
+            # Run synchronous mode if no bot
+            from datetime import datetime
+            self.running = True
+            self.notifier.log_info(f"Network Monitor Agent running (interval: {self.interval}s)")
+
+            try:
+                while self.running:
+                    try:
+                        self.run_monitoring_cycle()
+                    except Exception as e:
+                        self.notifier.log_error(f"Error in monitoring cycle: {e}")
+
+                    # Check if 24 hours passed for daily summary
+                    time_since_summary = (datetime.now() - self.last_summary).total_seconds()
+                    if time_since_summary >= 86400:  # 24 hours
+                        self.notifier.notify_daily_summary(self.daily_stats)
+                        self.last_summary = datetime.now()
+                        # Reset daily stats
+                        self.daily_stats = {
+                            'total_checks': 0,
+                            'issues_found': 0,
+                            'actions_taken': 0,
+                            'systems_healthy': 0,
+                            'systems_total': 0
+                        }
+
+                    # Wait for next cycle
+                    if self.running:
+                        time.sleep(self.interval)
+
+            except KeyboardInterrupt:
+                pass
+            finally:
+                self.notifier.notify_shutdown()
+                self.notifier.log_info("Agent stopped")
 
 
 def main():

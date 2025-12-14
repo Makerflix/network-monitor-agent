@@ -168,6 +168,10 @@ monitoring:
           - sensor
           - lock
           - cover
+        # Integrations to ignore (by domain or title)
+        ignore_integrations:
+          - tplink
+          - "TP-LINK_Power Strip_B8A8 KP303"
 
 # Remediation Settings
 remediation:
@@ -203,3 +207,8 @@ notifications:
   slack:
     enabled: false
     webhook_url: "${SLACK_WEBHOOK_URL}"
+
+# Discord Bot Settings (Interactive)
+discord_bot:
+  enabled: true
+  prefix: "!"  # Command prefix (e.g., !status, !check)

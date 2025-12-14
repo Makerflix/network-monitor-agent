@@ -131,6 +131,7 @@ class HomeAssistantMonitor:
         url = instance_config.get('url')
         token = instance_config.get('token')
         name = instance_config.get('name', url)
+        ignore_integrations = instance_config.get('ignore_integrations', [])
 
         if not instance_config.get('check_integrations', True):
             return results
@@ -149,6 +150,10 @@ class HomeAssistantMonitor:
                 domain = entry.get('domain', 'unknown')
                 title = entry.get('title', domain)
                 state = entry.get('state', 'unknown')
+
+                # Skip ignored integrations
+                if domain in ignore_integrations or title in ignore_integrations:
+                    continue
 
                 # Check for non-loaded states
                 if state not in ['loaded', 'not_loaded']:

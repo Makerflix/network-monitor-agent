@@ -100,6 +100,15 @@ Examples of actions:
 - clear_cache: {{"type": "system"}}
 - remount: {{"mount_config": {{...}}}}
 - unmount_remount: {{"mount_config": {{...}}}}
+- enable_automation: {{"entity_id": "automation.name", "url": "http://ha:8123", "token": "token", "friendly_name": "Automation Name"}}
+- reload_integration: {{"integration_id": "abc123", "url": "http://ha:8123", "token": "token", "title": "Integration Name"}}
+
+IMPORTANT: For Home Assistant actions (enable_automation, reload_integration), you MUST copy the following fields from the issue data into action_params:
+- integration_id (from issue's integration_id field)
+- entity_id (from issue's entity_id field)
+- url (from issue's url field)
+- token (from issue's token field)
+- title or friendly_name (from issue's title or friendly_name field)
 
 Respond ONLY with the JSON array, no other text."""
 
