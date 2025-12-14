@@ -81,12 +81,8 @@ monitoring:
         expected_status: 200
 
       # Home Assistant
-      - url: "http://192.168.1.86:8123"
-        name: "Home Assistant Primary"
-        timeout: 5
-        expected_status: 200
       - url: "http://192.168.1.101:8123"
-        name: "Home Assistant Secondary"
+        name: "Home Assistant"
         timeout: 5
         expected_status: 200
 
