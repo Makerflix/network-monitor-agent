@@ -1,0 +1,98 @@
+# Network Monitor Agent Configuration
+
+# AI Provider Settings
+ai:
+  provider: "ollama"  # Using local Ollama
+  model: "linuxexpert:latest"  # Specialized for Linux system administration
+  # Alternative models if this is too slow:
+  # model: "linux-helper-hermes:latest"  # Faster, 4.7GB
+  # model: "qwen2.5:14b"  # Excellent reasoning, 9.0GB
+
+# Monitoring Settings
+monitoring:
+  interval: 60  # Check every 60 seconds
+
+  # System Monitoring
+  system:
+    enabled: true
+    cpu_threshold: 80  # Alert if CPU > 80%
+    memory_threshold: 85  # Alert if memory > 85%
+    disk_threshold: 90  # Alert if disk > 90%
+    check_services:
+      - docker
+      - ssh
+      # - nginx  # Add services you want to monitor
+
+    check_mounts:  # Mounts to monitor
+      - path: /mnt/PersonalOS
+        source: "192.168.1.234:/mnt/user/PersonalOS"
+        type: nfs4
+        options: "defaults,_netdev"
+      - path: /mnt/nas-ai
+        source: "192.168.1.234:/mnt/user/AIserver"
+        type: nfs4
+        options: "defaults,_netdev"
+      - path: /mnt/nas/Scans
+        source: "192.168.1.234:/mnt/user/Scans"
+        type: nfs4
+        options: "defaults,_netdev"
+      - path: /mnt/unraid/STLs
+        source: "192.168.1.234:/mnt/user/STLs"
+        type: nfs4
+        options: "defaults,_netdev"
+      - path: /mnt/nas/Movies
+        source: "192.168.1.234:/mnt/user/Movies"
+        type: nfs4
+        options: "defaults,_netdev"
+
+  # Network Monitoring
+  network:
+    enabled: true
+    hosts_to_ping:
+      - 8.8.8.8  # Google DNS
+      - 1.1.1.1  # Cloudflare DNS
+    packet_loss_threshold: 10  # Alert if > 10% packet loss
+    latency_threshold: 200  # Alert if latency > 200ms
+    ignore_interfaces:  # Interfaces to skip monitoring
+      - enp10s0
+      - enp7s0d1
+      - tailscale0
+
+  # Web Service Monitoring
+  web_services:
+    enabled: true
+    endpoints:
+      - url: "http://localhost:8000"
+        name: "Local API"
+        timeout: 5
+        expected_status: 200
+      # Add your endpoints here
+
+# Remediation Settings
+remediation:
+  auto_fix: true
+  max_attempts: 3
+  cooldown: 300  # Wait 5 minutes before retrying same fix
+
+  # Actions the agent can take automatically
+  allowed_actions:
+    - restart_service
+    - clear_cache
+    - kill_hung_process
+    - restart_container
+    - clear_disk_space
+    - remount  # Remount stale mounts
+    - unmount_remount  # Full unmount/remount for failed mounts
+
+# Notification Settings
+notifications:
+  log_file: "/var/log/network-monitor-agent.log"
+  log_level: "INFO"
+
+  discord:
+    enabled: false
+    webhook_url: "${DISCORD_WEBHOOK_URL}"
+
+  slack:
+    enabled: false
+    webhook_url: "${SLACK_WEBHOOK_URL}"

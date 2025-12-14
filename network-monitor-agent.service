@@ -1,0 +1,27 @@
+[Unit]
+Description=Network Monitor Agent - AI-powered system monitoring
+After=network.target
+
+[Service]
+Type=simple
+User=aa-ai
+Group=aa-ai
+WorkingDirectory=/home/aa-ai/network-monitor-agent
+
+# Set your API key here or use an environment file
+Environment="ANTHROPIC_API_KEY=your-api-key-here"
+# Or use: EnvironmentFile=/etc/network-monitor-agent/env
+
+ExecStart=/home/aa-ai/network-monitor-agent/venv/bin/python3 /home/aa-ai/network-monitor-agent/main.py
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=network-monitor-agent
+
+[Install]
+WantedBy=multi-user.target
