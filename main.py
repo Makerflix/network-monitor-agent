@@ -12,7 +12,8 @@ import os
 
 from monitors import (
     SystemMonitor, NetworkMonitor, WebMonitor,
-    RemoteServerMonitor, ProxmoxMonitor, DockerRemoteMonitor
+    RemoteServerMonitor, ProxmoxMonitor, DockerRemoteMonitor,
+    HomeAssistantMonitor
 )
 from ai import DecisionEngine
 from remediation import RemediationActions
@@ -62,6 +63,9 @@ class NetworkMonitorAgent:
 
         if monitoring_config.get('docker_remote', {}).get('enabled', False):
             self.monitors.append(DockerRemoteMonitor(monitoring_config.get('docker_remote', {})))
+
+        if monitoring_config.get('home_assistant', {}).get('enabled', False):
+            self.monitors.append(HomeAssistantMonitor(monitoring_config.get('home_assistant', {})))
 
         # Log enabled monitors
         monitor_names = [m.__class__.__name__ for m in self.monitors]

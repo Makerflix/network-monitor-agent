@@ -149,6 +149,26 @@ monitoring:
         host: "192.168.1.234"
         user: "root"
 
+  # Home Assistant Monitoring
+  home_assistant:
+    enabled: true
+    instances:
+      - name: "Home Assistant"
+        url: "http://192.168.1.101:8123"
+        token: "${HA_TOKEN}"
+        check_automations: true
+        check_entities: true
+        check_integrations: true
+        # Only monitor specific domains to reduce noise
+        entity_domains:
+          - light
+          - switch
+          - climate
+          - binary_sensor
+          - sensor
+          - lock
+          - cover
+
 # Remediation Settings
 remediation:
   auto_fix: true
@@ -164,6 +184,8 @@ remediation:
     - clear_disk_space
     - remount  # Remount stale mounts
     - unmount_remount  # Full unmount/remount for failed mounts
+    - enable_automation  # Re-enable disabled Home Assistant automations
+    - reload_integration  # Reload failed Home Assistant integrations
 
 # Notification Settings
 notifications:

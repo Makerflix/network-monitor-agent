@@ -124,6 +124,37 @@ View logs:
 sudo journalctl -u network-monitor-agent -f
 ```
 
+## Home Assistant Integration
+
+To monitor Home Assistant automations, devices, and integrations, you need to create a Long-Lived Access Token:
+
+1. **Open Home Assistant**: Navigate to http://192.168.1.101:8123
+2. **Go to your profile**: Click on your username in the bottom left
+3. **Scroll down to Long-Lived Access Tokens**: Find the "Long-Lived Access Tokens" section
+4. **Create Token**:
+   - Click "Create Token"
+   - Name it: "Network Monitor Agent"
+   - Copy the token (you won't be able to see it again!)
+5. **Add to .env file**:
+   ```bash
+   nano .env
+   ```
+   Replace `HA_TOKEN=your-token-here` with your actual token:
+   ```
+   HA_TOKEN=eyJ0eXAiOiJKV1QiLCJhbGci...your-actual-token
+   ```
+6. **Save and exit**: Press Ctrl+X, then Y, then Enter
+
+### What Gets Monitored
+
+With Home Assistant integration enabled, the agent will:
+- **Automations**: Detect disabled automations and automatically re-enable them
+- **Devices**: Identify devices that are offline or unavailable
+- **Integrations**: Monitor for failed integrations and attempt to reload them
+- **Entity States**: Report entities in unavailable or unknown states
+
+The agent checks these every 60 seconds and can automatically fix common issues like disabled automations.
+
 ## Troubleshooting
 
 ### SSH Authentication Failures

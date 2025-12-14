@@ -1,6 +1,7 @@
 import subprocess
 import os
 import shutil
+import requests
 from typing import Dict, Any, Tuple
 import time
 
@@ -47,6 +48,12 @@ class RemediationActions:
 
         elif action_type == 'unmount_remount':
             return self.unmount_remount(params.get('mount_config'))
+
+        elif action_type == 'enable_automation':
+            return self.enable_automation(params)
+
+        elif action_type == 'reload_integration':
+            return self.reload_integration(params)
 
         elif action_type == 'alert_only':
             return True, "Alert only - no action taken"
@@ -392,3 +399,60 @@ class RemediationActions:
                 self.attempt_history[key] = (current_time, 1)
         else:
             self.attempt_history[key] = (current_time, 1)
+
+    def enable_automation(self, params: Dict[str, Any]) -> Tuple[bool, str]:
+        """Re-enable a disabled Home Assistant automation"""
+        entity_id = params.get('entity_id')
+        url = params.get('url')
+        token = params.get('token')
+        friendly_name = params.get('friendly_name', entity_id)
+
+        if not all([entity_id, url, token]):
+            return False, "Missing required parameters (entity_id, url, token)"
+
+        try:
+            # Call Home Assistant service to turn on automation
+            service_url = f"{url}/api/services/automation/turn_on"
+            headers = {
+                'Authorization': f'Bearer {token}',
+                'Content-Type': 'application/json'
+            }
+            data = {'entity_id': entity_id}
+
+            response = requests.post(service_url, headers=headers, json=data, verify=False, timeout=10)
+
+            if response.status_code == 200:
+                return True, f"Successfully enabled automation '{friendly_name}'"
+            else:
+                return False, f"Failed to enable automation: HTTP {response.status_code}"
+
+        except Exception as e:
+            return False, f"Failed to enable automation: {str(e)}"
+
+    def reload_integration(self, params: Dict[str, Any]) -> Tuple[bool, str]:
+        """Reload a failed Home Assistant integration"""
+        integration_id = params.get('integration_id')
+        url = params.get('url')
+        token = params.get('token')
+        title = params.get('title', integration_id)
+
+        if not all([integration_id, url, token]):
+            return False, "Missing required parameters (integration_id, url, token)"
+
+        try:
+            # Call Home Assistant service to reload config entry
+            service_url = f"{url}/api/config/config_entries/entry/{integration_id}/reload"
+            headers = {
+                'Authorization': f'Bearer {token}',
+                'Content-Type': 'application/json'
+            }
+
+            response = requests.post(service_url, headers=headers, verify=False, timeout=10)
+
+            if response.status_code in [200, 204]:
+                return True, f"Successfully reloaded integration '{title}'"
+            else:
+                return False, f"Failed to reload integration: HTTP {response.status_code}"
+
+        except Exception as e:
+            return False, f"Failed to reload integration: {str(e)}"
